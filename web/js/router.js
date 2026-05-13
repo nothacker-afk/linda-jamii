@@ -31,6 +31,11 @@ const AppFlow = {
         container.innerHTML = `<div class="page-container page-${step}">
             ${this.getStepTemplate(step)}
         </div>`;
+
+        // Initialize components if needed
+        if (step === 'dashboard') {
+            InfoHubComponent.init();
+        }
     },
 
     getStepTemplate(step) {
@@ -98,7 +103,16 @@ const AppFlow = {
                         <div class="container">
                             <h1 class="gradient-text">Welcome to Dashboard</h1>
                             <p>You are now protecting your community.</p>
-                            <button class="btn btn-outline" onclick="location.reload()">Logout</button>
+                            
+                            <!-- M-Pesa Donation Component -->
+                            ${DonationComponent.render()}
+
+                            <!-- Weather & News InfoHub -->
+                            ${InfoHubComponent.render()}
+
+                            <div style="margin-top: 3rem;">
+                                <button class="btn btn-outline" onclick="location.reload()">Logout</button>
+                            </div>
                         </div>
                     </div>`;
             default:

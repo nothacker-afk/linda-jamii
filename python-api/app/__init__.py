@@ -10,6 +10,8 @@ from .routes.incidents import incidents_bp
 from .routes.community import community_bp
 from .routes.alerts import alerts_bp
 from .routes.health import health_bp
+from .controllers.mpesa_controller import mpesa_bp
+from .controllers.info_controller import info_bp
 
 
 def create_app(config_name: str = "development") -> Flask:
@@ -29,5 +31,7 @@ def create_app(config_name: str = "development") -> Flask:
     app.register_blueprint(incidents_bp, url_prefix="/api/incidents")
     app.register_blueprint(community_bp, url_prefix="/api/community")
     app.register_blueprint(alerts_bp,    url_prefix="/api/alerts")
+    app.register_blueprint(mpesa_bp,     url_prefix="/api/mpesa")
+    app.register_blueprint(info_bp,      url_prefix="/api/info")
 
     return app

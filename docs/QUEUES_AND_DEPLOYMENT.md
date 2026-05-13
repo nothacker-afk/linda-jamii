@@ -49,6 +49,16 @@ FLASK_ENV=production
 DB_URL=postgresql://user:pass@localhost:5432/lindajamii
 JWT_SECRET=super-secret-key
 C_SERVICE_URL=http://localhost:8090
+
+# M-Pesa Daraja API
+MPESA_CONSUMER_KEY=your_key
+MPESA_CONSUMER_SECRET=your_secret
+MPESA_SHORTCODE=174379
+MPESA_PASSKEY=bfb2...
+
+# External Info APIs
+OPENWEATHER_API_KEY=your_weather_key
+NEWS_API_KEY=your_news_key
 ```
 
 ### 2. Local Startup Commands
