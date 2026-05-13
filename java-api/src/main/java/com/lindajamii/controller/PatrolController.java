@@ -5,6 +5,7 @@ import com.lindajamii.service.PatrolService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ public class PatrolController {
 
     /** GET /api/patrols — list all (optionally filtered by ?status=) */
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'WARDEN', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> listAll(
             @RequestParam(required = false) String status) {
         List<Patrol> list = (status != null && !status.isBlank())
@@ -48,6 +50,7 @@ public class PatrolController {
 
     /** POST /api/patrols — schedule a new patrol */
     @PostMapping
+    @PreAuthorize("hasRole('WARDEN') or hasRole('ADMIN')")
     public ResponseEntity<Patrol> create(@RequestBody Patrol p) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.save(p));
     }
