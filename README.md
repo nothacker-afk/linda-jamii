@@ -1,3 +1,105 @@
+# 🛡️ LindaJamii — Community Safety Platform
+
+**LindaJamii** (Swahili: *"Protect the Community"*) is a modern, full-stack community safety and neighbourhood watch platform built with four programming languages across three backend services and a rich web frontend.
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LindaJamii Platform                          │
+├─────────────────────────────────────────────────────────────────┤
+│  🌐  Web Frontend  (HTML / CSS / JavaScript)   port 3000        │
+│      └─ Connects to all three backend services                  │
+├─────────────────────────────────────────────────────────────────┤
+│  🐍  Python REST API  (Flask)                  port 5050        │
+│      └─ Incidents · Alerts · Community members                  │
+├─────────────────────────────────────────────────────────────────┤
+│  ☕  Java Spring Boot API                       port 8080        │
+│      └─ Neighbourhoods · Patrol scheduling                      │
+├─────────────────────────────────────────────────────────────────┤
+│  ⚙️  C Micro-Service  (pure C, no deps)         port 8090        │
+│      └─ Health · Hashing · Stats                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Repository Structure
+
+```
+linda-jamii/
+├── web/                    # HTML/CSS/JS Frontend
+│   ├── index.html
+│   ├── css/style.css
+│   ├── js/app.js
+│   └── README.md
+│
+├── python-api/             # Python Flask REST API
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── models/store.py
+│   │   └── routes/
+│   ├── run.py
+│   ├── requirements.txt
+│   └── README.md
+│
+├── java-api/               # Java Spring Boot API
+│   ├── src/main/java/com/lindajamii/
+│   ├── pom.xml
+│   └── README.md
+│
+├── c-service/              # C TCP HTTP Micro-Service
+│   ├── src/main.c
+│   ├── include/lindajamii.h
+│   ├── Makefile
+│   └── README.md
+│
+├── server/                 # Original Node.js server
+├── app/                    # Original React Native app
+└── cli/                    # Original CLI tool
+```
+
+## Quick Start
+
+### 1. C Micro-Service (port 8090)
+```bash
+cd c-service && make && ./lindajamii-service
+```
+
+### 2. Python REST API (port 5050)
+```bash
+cd python-api && pip install -r requirements.txt && python run.py
+```
+
+### 3. Java Spring Boot API (port 8080)
+```bash
+cd java-api
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+mvn clean package -DskipTests
+java -jar target/lindajamii-api-1.0.0.jar
+```
+
+### 4. Web Frontend (port 3000)
+```bash
+cd web && python3 -m http.server 3000
+# Open http://localhost:3000
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Language | Port |
+|-------|-----------|----------|------|
+| Frontend | Vanilla HTML/CSS/JS | JavaScript | 3000 |
+| REST API | Flask 3.x | Python | 5050 |
+| REST API | Spring Boot 3.2 | Java 17 | 8080 |
+| Micro-service | Pure C (no deps) | C (C11) | 8090 |
+
+---
+
+## Original React Native AI App
+
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dabit3/react-native-ai)
 
 # React Native AI

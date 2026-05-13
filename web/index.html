@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LindaJamii — Community Safety Platform</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ── Navigation ──────────────────────────────────────────────── -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">
+        <span class="logo-icon">🛡️</span>
+        <span class="logo-text">Linda<strong>Jamii</strong></span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#home" class="nav-link active">Home</a></li>
+        <li><a href="#incidents" class="nav-link">Incidents</a></li>
+        <li><a href="#neighbourhoods" class="nav-link">Neighbourhoods</a></li>
+        <li><a href="#patrols" class="nav-link">Patrols</a></li>
+        <li><a href="#alerts" class="nav-link">Alerts</a></li>
+        <li><a href="#status" class="nav-link">System Status</a></li>
+      </ul>
+      <button class="nav-cta" onclick="openReportModal()">Report Incident</button>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────────────── -->
+  <section class="hero" id="home">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-badge">🌍 Nairobi's #1 Community Safety Network</div>
+      <h1 class="hero-title">
+        Safer Neighbourhoods,<br/>
+        <span class="gradient-text">Stronger Communities</span>
+      </h1>
+      <p class="hero-subtitle">
+        LindaJamii connects residents, wardens, and local authorities to report
+        incidents, coordinate patrols, and share real-time safety alerts — all in one platform.
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" onclick="openReportModal()">
+          📢 Report an Incident
+        </button>
+        <a href="#incidents" class="btn btn-outline">View Live Feed</a>
+      </div>
+      <div class="hero-stats" id="heroStats">
+        <div class="stat-item">
+          <span class="stat-number" id="statMembers">—</span>
+          <span class="stat-label">Members</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number" id="statNeighbourhoods">—</span>
+          <span class="stat-label">Neighbourhoods</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number" id="statIncidents">—</span>
+          <span class="stat-label">Incidents Reported</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number" id="statAlerts">—</span>
+          <span class="stat-label">Active Alerts</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="map-card">
+        <div class="map-header">
+          <span class="map-dot green"></span>
+          <span class="map-dot yellow"></span>
+          <span class="map-dot red"></span>
+          <span class="map-title">Live Safety Map — Nairobi</span>
+        </div>
+        <div class="map-body">
+          <div class="map-pin" style="top:30%;left:45%" data-area="Westlands">
+            <div class="pin-dot green"></div>
+            <div class="pin-label">Westlands</div>
+          </div>
+          <div class="map-pin" style="top:50%;left:38%" data-area="Kilimani">
+            <div class="pin-dot yellow"></div>
+            <div class="pin-label">Kilimani</div>
+          </div>
+          <div class="map-pin" style="top:65%;left:55%" data-area="Karen">
+            <div class="pin-dot green"></div>
+            <div class="pin-label">Karen</div>
+          </div>
+          <div class="map-pin" style="top:40%;left:62%" data-area="Parklands">
+            <div class="pin-dot green"></div>
+            <div class="pin-label">Parklands</div>
+          </div>
+          <div class="map-pin" style="top:55%;left:30%" data-area="Ngong Rd">
+            <div class="pin-dot red"></div>
+            <div class="pin-label">Ngong Rd</div>
+          </div>
+          <div class="map-grid"></div>
+        </div>
+        <div class="map-legend">
+          <span><span class="legend-dot green"></span> Safe</span>
+          <span><span class="legend-dot yellow"></span> Caution</span>
+          <span><span class="legend-dot red"></span> Alert</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Active Alerts Banner ─────────────────────────────────────── -->
+  <section class="alerts-banner" id="alertsBanner">
+    <div class="alerts-container">
+      <div class="alerts-header">
+        <span class="alerts-icon">⚠️</span>
+        <h2>Active Safety Alerts</h2>
+        <span class="alerts-count" id="alertsCount">Loading…</span>
+      </div>
+      <div class="alerts-list" id="alertsList">
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Incidents Feed ───────────────────────────────────────────── -->
+  <section class="section" id="incidents">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Incident Reports</h2>
+        <p class="section-subtitle">Real-time community incident feed powered by the Python API</p>
+        <div class="filter-bar">
+          <select id="filterCategory" onchange="filterIncidents()">
+            <option value="">All Categories</option>
+            <option value="crime">Crime</option>
+            <option value="suspicious">Suspicious</option>
+            <option value="infrastructure">Infrastructure</option>
+            <option value="other">Other</option>
+          </select>
+          <select id="filterSeverity" onchange="filterIncidents()">
+            <option value="">All Severities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select id="filterStatus" onchange="filterIncidents()">
+            <option value="">All Statuses</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+          </select>
+          <button class="btn btn-sm btn-outline" onclick="loadIncidents()">🔄 Refresh</button>
+        </div>
+      </div>
+      <div class="incidents-grid" id="incidentsGrid">
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Neighbourhoods ───────────────────────────────────────────── -->
+  <section class="section section-alt" id="neighbourhoods">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Registered Neighbourhoods</h2>
+        <p class="section-subtitle">Managed via the Java Spring Boot API</p>
+      </div>
+      <div class="summary-cards" id="summaryCards">
+        <div class="loading-spinner"></div>
+      </div>
+      <div class="neighbourhoods-grid" id="neighbourhoodsGrid">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Patrols ──────────────────────────────────────────────────── -->
+  <section class="section" id="patrols">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Patrol Schedule</h2>
+        <p class="section-subtitle">Active and upcoming neighbourhood patrols</p>
+        <div class="filter-bar">
+          <button class="btn btn-sm btn-outline active-filter" onclick="loadPatrols('')" id="patrolAll">All</button>
+          <button class="btn btn-sm btn-outline" onclick="loadPatrols('scheduled')" id="patrolScheduled">Scheduled</button>
+          <button class="btn btn-sm btn-outline" onclick="loadPatrols('active')" id="patrolActive">Active</button>
+          <button class="btn btn-sm btn-outline" onclick="loadPatrols('completed')" id="patrolCompleted">Completed</button>
+        </div>
+      </div>
+      <div class="patrols-grid" id="patrolsGrid">
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── System Status ────────────────────────────────────────────── -->
+  <section class="section section-alt" id="status">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">System Status</h2>
+        <p class="section-subtitle">Live health of all backend services</p>
+      </div>
+      <div class="status-grid">
+        <!-- C Service -->
+        <div class="status-card" id="statusC">
+          <div class="status-card-header">
+            <span class="status-lang-badge c">C</span>
+            <h3>C Micro-Service</h3>
+            <span class="status-indicator" id="statusIndicatorC">⏳</span>
+          </div>
+          <p class="status-desc">Low-level TCP HTTP service — hashing, health, stats</p>
+          <div class="status-details" id="statusDetailsC">Checking…</div>
+          <div class="status-endpoints">
+            <code>:8090/health</code>
+            <code>:8090/hash</code>
+            <code>:8090/stats</code>
+          </div>
+        </div>
+        <!-- Python Service -->
+        <div class="status-card" id="statusPython">
+          <div class="status-card-header">
+            <span class="status-lang-badge python">Python</span>
+            <h3>Python REST API</h3>
+            <span class="status-indicator" id="statusIndicatorPython">⏳</span>
+          </div>
+          <p class="status-desc">Flask API — incidents, alerts, community</p>
+          <div class="status-details" id="statusDetailsPython">Checking…</div>
+          <div class="status-endpoints">
+            <code>:5050/api/health</code>
+            <code>:5050/api/incidents</code>
+            <code>:5050/api/alerts</code>
+          </div>
+        </div>
+        <!-- Java Service -->
+        <div class="status-card" id="statusJava">
+          <div class="status-card-header">
+            <span class="status-lang-badge java">Java</span>
+            <h3>Java Spring Boot API</h3>
+            <span class="status-indicator" id="statusIndicatorJava">⏳</span>
+          </div>
+          <p class="status-desc">Spring Boot — neighbourhoods, patrols</p>
+          <div class="status-details" id="statusDetailsJava">Checking…</div>
+          <div class="status-endpoints">
+            <code>:8080/api/health</code>
+            <code>:8080/api/neighbourhoods</code>
+            <code>:8080/api/patrols</code>
+          </div>
+        </div>
+      </div>
+      <!-- Hash Tool (C Service Demo) -->
+      <div class="hash-tool">
+        <h3>🔧 C Service — DJB2 Hash Tool</h3>
+        <p>Powered by the C micro-service running on port 8090</p>
+        <div class="hash-input-row">
+          <input type="text" id="hashInput" placeholder="Enter text to hash…" />
+          <button class="btn btn-primary" onclick="computeHash()">Compute Hash</button>
+        </div>
+        <div class="hash-result" id="hashResult"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ───────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <span class="logo-icon">🛡️</span>
+        <span class="logo-text">Linda<strong>Jamii</strong></span>
+        <p>Building safer communities together.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Platform</h4>
+        <a href="#incidents">Incidents</a>
+        <a href="#neighbourhoods">Neighbourhoods</a>
+        <a href="#patrols">Patrols</a>
+        <a href="#alerts">Alerts</a>
+      </div>
+      <div class="footer-links">
+        <h4>Tech Stack</h4>
+        <a href="#status">C Micro-Service (port 8090)</a>
+        <a href="#status">Python Flask API (port 5050)</a>
+        <a href="#status">Java Spring Boot (port 8080)</a>
+        <a href="#status">HTML/CSS/JS Frontend</a>
+      </div>
+      <div class="footer-links">
+        <h4>Community</h4>
+        <a href="https://github.com/nothacker-afk/linda-jamii" target="_blank">GitHub Repository</a>
+        <a href="#status">System Status</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 LindaJamii. Built with C · Python · Java · HTML/CSS/JS</p>
+    </div>
+  </footer>
+
+  <!-- ── Report Incident Modal ────────────────────────────────────── -->
+  <div class="modal-overlay" id="reportModal" onclick="closeReportModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📢 Report an Incident</h3>
+        <button class="modal-close" onclick="closeReportModal()">✕</button>
+      </div>
+      <form class="modal-form" onsubmit="submitIncident(event)">
+        <div class="form-group">
+          <label>Title *</label>
+          <input type="text" id="incTitle" placeholder="Brief description of the incident" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Category</label>
+            <select id="incCategory">
+              <option value="suspicious">Suspicious Activity</option>
+              <option value="crime">Crime</option>
+              <option value="infrastructure">Infrastructure</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Severity</label>
+            <select id="incSeverity">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Location / Address</label>
+          <input type="text" id="incAddress" placeholder="e.g. Westlands, Nairobi" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="incDescription" rows="3" placeholder="Provide more details…"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Your Name (optional)</label>
+          <input type="text" id="incReporter" placeholder="Anonymous" />
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline" onclick="closeReportModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Report</button>
+        </div>
+        <div id="submitFeedback" class="submit-feedback"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
