@@ -96,9 +96,6 @@ I would like to express my profound gratitude to my supervisor, [Supervisor's Na
 ## LIST OF FIGURES
 
 - Figure 1: Proposed System Architecture
-- Figure 2: Context Diagram for LindaJamii
-- Figure 3: Level 0 Data Flow Diagram
-- Figure 4: Entity-Relationship Diagram (ERD)
 
 <div style="page-break-after: always;"></div>
 
@@ -437,3 +434,714 @@ The analysis of the requirements dictates a distributed architecture.
 5.  NewsAPI. (2023). *News API Documentation*. [Online] Available at: https://newsapi.org/docs [Accessed 14 May 2026].
 6.  Spring Framework Documentation. (2023). *Spring Boot Reference Guide*. [Online] Available at: https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/ [Accessed 14 May 2026].
 7.  Pallets Projects. (2023). *Flask Documentation*. [Online] Available at: https://flask.palletsprojects.com/ [Accessed 14 May 2026].
+
+<div style="page-break-after: always;"></div>
+
+# CHAPTER FIVE: SYSTEM DESIGN AND IMPLEMENTATION
+
+## 5.1 System Architecture
+
+LindaJamii employs a **microservices architecture** to ensure scalability, maintainability, and flexibility. This polyglot approach leverages the strengths of different programming languages for specific tasks. The system is composed of a modern web frontend and three distinct backend services (C, Python, Java) that communicate via RESTful APIs.
+
+**Figure 1: Proposed System Architecture**
+
+```mermaid
+graph TD
+    A[Web Frontend] --> B(Python API:5050)
+    A --> C(Java API:8080)
+    A --> D(C Service:8090)
+    B --> E[M-Pesa API]
+    B --> F[Weather API]
+    B --> G[News API]
+    B --> D
+    C --> H[Database]
+    B --> H
+    D --> H
+```
+
+-   **Web Frontend:** A Single Page Application (SPA) built with HTML, CSS, and JavaScript, providing the user interface and interacting with the backend APIs.
+-   **Python API (Flask):** Handles incident reporting, community alerts, and integrates with external APIs (M-Pesa, Weather, News). It also serves as an orchestrator for certain tasks, potentially calling the C service.
+-   **Java API (Spring Boot):** Manages user authentication, authorization (via Spring Security), neighbourhood registries, and patrol scheduling. It provides robust, enterprise-grade services.
+-   **C Micro-Service:** A high-performance, low-level service for specific utility functions like hashing, health checks, and potentially real-time data processing where speed is critical.
+-   **Database:** A PostgreSQL/MySQL relational database serves as the persistent storage for all application data.
+
+## 5.2 Database Design
+
+The database schema is designed to support the core functionalities of a community safety and information platform, drawing inspiration from social media-like interactions for community engagement. The Entity-Relationship Diagram (ERD) below illustrates the relationships between key entities.
+
+
+
+```
+
+**Table Definitions:**
+
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(20),
+    profile_picture_url TEXT,
+    bio TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_verified BOOLEAN DEFAULT FALSE,
+    role VARCHAR(50) DEFAULT 'user'
+);
+
+CREATE TABLE posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    media_url TEXT,
+    post_type VARCHAR(50) DEFAULT 'text',
+    location VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE followers (
+    follower_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    followed_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (follower_id, followed_id)
+);
+
+CREATE TABLE likes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (post_id, user_id) -- A user can only like a post once
+);
+
+CREATE TABLE chats (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_name VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE incidents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    incident_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    location VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'reported',
+    severity VARCHAR(50) DEFAULT 'medium',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alert_type VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    geographical_scope VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE neighbourhoods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    location_coords VARCHAR(255), -- e.g., "-1.286389, 36.817223"
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE patrols (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    neighbourhood_id UUID NOT NULL REFERENCES neighbourhoods(id) ON DELETE CASCADE,
+    patrol_leader_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    status VARCHAR(50) DEFAULT 'scheduled',
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## 5.3 Frontend Design
+
+The frontend is designed as a modern Single Page Application (SPA) with a clear, intuitive user flow and responsive design principles. The user experience is structured around a 5-step application flow:
+
+1.  **Splash Screen:** Initial loading screen, introducing the app.
+2.  **Sign Up:** User registration with email/phone and password.
+3.  **Verify:** Account verification (e.g., OTP via SMS/Email).
+4.  **Onboard:** Initial profile setup, selecting interests, and joining neighborhoods.
+5.  **Dashboard:** The main interactive hub, providing access to all features.
+
+**Key UI Components:**
+-   **InfoHub:** Displays real-time weather forecasts and curated news (medical, geopolitical, climatic) fetched from the Python API.
+-   **Incident Reporting:** A form for users to submit detailed incident reports, which are then sent to the Python API.
+-   **Donation Gateway:** An interface for M-Pesa donations, interacting with the Python API for STK Push initiation.
+-   **Community Feed:** Displays posts, comments, and alerts, allowing for social interaction.
+-   **Patrol Schedule:** Shows upcoming and ongoing patrols, managed via the Java API.
+
+## 5.4 Backend Implementation Details
+
+### 5.4.1 Python Flask API
+
+The Python API is structured following a production-grade pattern with dedicated layers for controllers, services, and repositories.
+
+-   **Controllers:** Handle incoming HTTP requests, validate input, and delegate to services. For instance, the `IncidentController` will receive incident reports.
+    ```python
+    # python-api/app/controllers/incident_controller.py
+    from flask import Blueprint, request, jsonify
+    from app.services.incident_service import IncidentService
+
+    incident_bp = Blueprint('incident', __name__)
+    incident_service = IncidentService()
+
+    @incident_bp.route('/incidents', methods=['POST'])
+    def report_incident():
+        data = request.get_json()
+        # Basic validation
+        if not data or not all(key in data for key in ['incident_type', 'description', 'location']):
+            return jsonify({'message': 'Missing required fields'}), 400
+
+        # Enqueue work for asynchronous processing
+        incident_service.enqueue_incident_report(data)
+        return jsonify({'message': 'Incident report received and being processed'}), 202
+    ```
+
+-   **Services:** Contain the business logic, interacting with repositories and external services. The `IncidentService` will enqueue incident reports for asynchronous processing.
+-   **Repositories:** Abstract database interactions, providing methods for CRUD operations on models.
+-   **Middlewares:** For request pre-processing (e.g., authentication, logging).
+-   **Validators:** For complex input validation.
+-   **Jobs:** For background tasks (e.g., processing enqueued incident reports).
+
+### 5.4.2 Java Spring Boot API
+
+The Java API provides robust, secure services for managing core community data. It adheres to standard Spring Boot conventions.
+
+-   **Package Structure:** `com.lindajamii.controller`, `com.lindajamii.service`, `com.lindajamii.repository`, `com.lindajamii.model`, `com.lindajamii.config`.
+-   **Patrol Scheduling Controller:** Manages the creation, updating, and viewing of patrol schedules.
+    ```java
+    // java-api/src/main/java/com/lindajamii/controller/PatrolController.java
+    package com.lindajamii.controller;
+
+    import com.lindajamii.model.Patrol;
+    import com.lindajamii.service.PatrolService;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.security.access.prepost.PreAuthorize;
+    import org.springframework.web.bind.annotation.*;
+
+    import java.util.List;
+    import java.util.UUID;
+
+    @RestController
+    @RequestMapping("/api/patrols")
+    public class PatrolController {
+
+        @Autowired
+        private PatrolService patrolService;
+
+        @GetMapping
+        @PreAuthorize("hasAnyRole(\'USER\', \'ADMIN\')")
+        public ResponseEntity<List<Patrol>> getAllPatrols() {
+            return ResponseEntity.ok(patrolService.findAll());
+        }
+
+        @GetMapping("/{id}")
+        @PreAuthorize("hasAnyRole(\'USER\', \'ADMIN\')")
+        public ResponseEntity<Patrol> getPatrolById(@PathVariable UUID id) {
+            return patrolService.findById(id)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build());
+        }
+
+        @PostMapping
+        @PreAuthorize("hasRole(\'ADMIN\')")
+        public ResponseEntity<Patrol> createPatrol(@RequestBody Patrol patrol) {
+            return ResponseEntity.ok(patrolService.save(patrol));
+        }
+
+        @PutMapping("/{id}")
+        @PreAuthorize("hasRole(\'ADMIN\')")
+        public ResponseEntity<Patrol> updatePatrol(@PathVariable UUID id, @RequestBody Patrol patrol) {
+            return ResponseEntity.ok(patrolService.update(id, patrol));
+        }
+
+        @DeleteMapping("/{id}")
+        @PreAuthorize("hasRole(\'ADMIN\')")
+        public ResponseEntity<Void> deletePatrol(@PathVariable UUID id) {
+            patrolService.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+    }
+    ```
+
+-   **Spring Security:** Integrated for authentication (e.g., JWT) and authorization (`@PreAuthorize` annotations) to secure endpoints based on user roles.
+
+### 5.4.3 C Micro-Service
+
+The C micro-service provides highly efficient, low-level functionalities. It exposes simple HTTP endpoints.
+
+-   **Endpoints:**
+    -   `/health`: Returns the service status.
+    -   `/hash`: Computes a DJB2 hash for a given string, demonstrating high-performance utility.
+    -   `/stats`: Provides basic service statistics (e.g., uptime, request count).
+
+-   **Python Integration Example:** The Python API can interact with the C service using standard HTTP client libraries.
+    ```python
+    # python-api/app/services/c_service_client.py
+    import requests
+
+    C_SERVICE_BASE_URL = "http://localhost:8090"
+
+    def get_c_service_health():
+        try:
+            response = requests.get(f"{C_SERVICE_BASE_URL}/health")
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return {"error": str(e), "status": "unreachable"}
+
+    def get_djb2_hash(text):
+        try:
+            response = requests.post(f"{C_SERVICE_BASE_URL}/hash", json={'text': text})
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return {"error": str(e), "hash": None}
+    ```
+
+## 5.5 External API Integrations
+
+-   **M-Pesa Daraja API (STK Push):** Integrated into the Python API to facilitate secure mobile money donations. This involves initiating an STK Push to the user's phone and handling the callback for transaction status.
+-   **Weather API (OpenWeatherMap):** Fetches localized weather forecasts, providing real-time environmental data to the InfoHub.
+-   **News API (NewsAPI):** Curates news articles related to medical, geopolitical, and climatic changes, offering relevant global and local updates.
+
+<div style="page-break-after: always;"></div>
+
+# CHAPTER SIX: QUEUES AND ASYNCHRONOUS PROCESSING
+
+## 6.1 Decoupling Services
+
+In a microservices architecture, it is crucial to decouple services to improve fault tolerance, scalability, and responsiveness. LindaJamii utilizes message queues to achieve this decoupling, particularly for tasks that are time-consuming or can be processed independently without blocking the main request flow.
+
+**Benefits of Decoupling with Queues:**
+-   **Improved Responsiveness:** Frontend requests (e.g., incident reporting) can return immediately (202 Accepted) while the actual processing happens in the background.
+-   **Increased Reliability:** If a downstream service is temporarily unavailable, messages remain in the queue and can be processed once the service recovers, preventing data loss.
+-   **Scalability:** Work can be distributed across multiple workers consuming from the queue, allowing for horizontal scaling of processing capacity.
+
+## 6.2 Message Visibility, Acknowledgements, and Retries
+
+Message queues provide mechanisms to ensure reliable message delivery and processing:
+
+-   **Message Visibility:** When a message is consumed by a worker, it becomes 
+invisible to other consumers for a configurable period (visibility timeout). This prevents multiple workers from processing the same message.
+-   **Acknowledgements (Acks):** After a message is successfully processed, the consumer sends an acknowledgment to the queue. This signals that the message can be safely deleted from the queue.
+-   **Retries and Dead-Letter Queues (DLQs):** If a message fails to process (e.g., due to an error in the consumer or a timeout), it can be returned to the queue for retry. After a configured number of retries, if processing still fails, the message is moved to a Dead-Letter Queue (DLQ) for manual inspection and debugging, preventing it from blocking the main queue.
+
+## 6.3 Incident Alert Processing Pipeline
+
+LindaJamii will adapt a video-upload-style pipeline for processing incident alerts, ensuring that even complex incidents are handled efficiently and reliably.
+
+
+
+**Pipeline Steps:**
+1.  **User Reports Incident:** A user submits an incident report via the frontend.
+2.  **Python API: Enqueue Incident:** The Python API receives the report, performs initial validation, and immediately returns a `202 Accepted` response. The full incident data is then pushed to an `Incident Queue`.
+3.  **Incident Processor (Worker):** A dedicated worker service (e.g., a Python background job) consumes messages from the `Incident Queue`. This worker performs:
+    -   **Geo-coding:** Resolving location details.
+    -   **AI Analysis (Future Extension):** Categorizing incident severity or identifying patterns.
+    -   **Database Storage:** Persisting the incident details in the database.
+    -   **Notification Trigger:** If the incident requires immediate attention, it enqueues a message to an `Alert Queue`.
+4.  **Alert Dispatcher (Worker):** Another worker consumes from the `Alert Queue` and dispatches notifications to affected users via various channels (SMS, email, push notifications).
+
+## 6.4 Queue Technologies Comparison
+
+Choosing the right queue technology depends on specific requirements for throughput, durability, and complexity.
+
+| Feature / Technology | Amazon SQS | RabbitMQ | Apache Kafka |
+| :------------------- | :--------- | :------- | :----------- |
+| **Type** | Managed Service | Message Broker | Distributed Streaming Platform |
+| **Durability** | High | High | Very High (replicated logs) |
+| **Ordering** | Best-effort (Standard), FIFO (with FIFO queues) | Guaranteed (per queue) | Guaranteed (per partition) |
+| **Scalability** | Highly scalable (auto-scaling) | Scalable (clustering) | Extremely scalable (distributed) |
+| **Complexity** | Low | Medium | High |
+| **Message Size** | Up to 256 KB | Unlimited (streams) | Up to 1 MB (configurable) |
+| **Use Case** | Decoupling microservices, simple task queues | Complex routing, enterprise messaging | Real-time data pipelines, event sourcing |
+
+For LindaJamii, given the need for reliable incident processing and potential for high-volume alerts, a robust queueing system is essential. Initially, a simpler solution like **RabbitMQ** might be suitable for its ease of deployment and guaranteed message delivery for task queues. For future high-throughput event streaming (e.g., real-time location updates), **Apache Kafka** would be a strong consideration.
+
+<div style="page-break-after: always;"></div>
+
+# CHAPTER SEVEN: DEPLOYMENT AND ROBUSTNESS
+
+## 7.1 Environment Configuration
+
+Effective environment configuration is crucial for managing different deployment stages (development, staging, production) and securing sensitive information. LindaJamii will utilize environment variables for all sensitive data and configuration parameters.
+
+-   **Sensitive Data:** API keys (M-Pesa, Weather, News), database credentials, JWT secrets.
+-   **Configuration:** Database connection strings, service ports, logging levels.
+
+**Example `.env` file structure:**
+
+```
+# Python API
+FLASK_APP=run.py
+FLASK_ENV=development
+PYTHON_API_PORT=5050
+DATABASE_URL=postgresql://user:password@host:port/database
+MPESA_CONSUMER_KEY=your_mpesa_consumer_key
+MPESA_CONSUMER_SECRET=your_mpesa_consumer_secret
+MPESA_SHORTCODE=your_mpesa_shortcode
+MPESA_PASSKEY=your_mpesa_passkey
+OPENWEATHER_API_KEY=your_openweathermap_api_key
+NEWSAPI_API_KEY=your_newsapi_api_key
+JWT_SECRET_KEY=super_secret_jwt_key
+
+# Java API
+SPRING_DATASOURCE_URL=jdbc:postgresql://host:port/database
+SPRING_DATASOURCE_USERNAME=user
+SPRING_DATASOURCE_PASSWORD=password
+JAVA_API_PORT=8080
+
+# C Service
+C_SERVICE_PORT=8090
+```
+
+## 7.2 Local Startup Commands
+
+For local development, each service can be started independently:
+
+```bash
+# 1. Start C Micro-Service
+cd lindajamii/c-service
+make
+./lindajamii-service &
+
+# 2. Start Java Spring Boot API (requires Java 17 and Maven)
+cd lindajamii/java-api
+mvn clean package -DskipTests
+java -jar target/lindajamii-api-1.0.0.jar &
+
+# 3. Start Python Flask API (requires Python 3.11 and pip)
+cd lindajamii/python-api
+pip install -r requirements.txt
+FLASK_APP=run.py FLASK_ENV=development FLASK_RUN_PORT=5050 flask run &
+
+# 4. Start Frontend (requires Node.js for development, or simple HTTP server for production build)
+cd lindajamii/web
+# For development (if using a build tool like Vite/Webpack):
+# npm install && npm start
+# For serving static files:
+python3 -m http.server 3000
+
+# Access frontend at http://localhost:3000
+```
+
+## 7.3 Cascading Health Checks
+
+To ensure the overall health of the LindaJamii platform, a system of cascading health checks will be implemented. This involves each service reporting its own health and also checking the health of its dependencies.
+
+-   **C Service Health:** Simple `/health` endpoint.
+-   **Python API Health:** `/api/health` endpoint that checks its database connection, external API connectivity (M-Pesa, Weather, News), and the C service health.
+-   **Java API Health:** `/api/health` endpoint that checks its database connection and any internal services.
+-   **Frontend Health:** Periodically pings backend `/health` endpoints to display system status on the dashboard.
+
+This cascading approach provides a clear picture of system health and helps in quickly identifying points of failure.
+
+## 7.4 JWT + bcrypt Security
+
+Security is paramount for LindaJamii. The platform will implement industry-standard security measures:
+
+-   **JSON Web Tokens (JWT):** For stateless authentication. Upon successful login, the Java API will issue a JWT to the client. This token will be included in subsequent requests to authenticate the user. JWTs are signed to prevent tampering.
+-   **bcrypt:** For secure password hashing. User passwords will never be stored in plain text. Instead, they will be hashed using bcrypt, a strong, adaptive hashing algorithm, making them resistant to brute-force attacks.
+-   **Spring Security:** The Java API will leverage Spring Security for comprehensive authentication and authorization, including role-based access control (`@PreAuthorize`).
+
+## 7.5 Error Envelope Convention
+
+To provide consistent and informative error responses across all APIs, a standardized error envelope convention will be adopted.
+
+**Example Error Response:**
+
+```json
+{
+    "status": "error",
+    "code": 400,
+    "message": "Invalid input data",
+    "details": [
+        {"field": "incident_type", "error": "Incident type is required"},
+        {"field": "location", "error": "Location cannot be empty"}
+    ],
+    "timestamp": "2026-05-14T10:30:00Z"
+}
+```
+
+This convention ensures that clients can reliably parse and display error messages, improving the user experience and simplifying debugging.
+
+## 7.6 Scaling Guidelines
+
+LindaJamii is designed with scalability in mind:
+
+-   **Horizontal Scaling:** All stateless services (Python API, Java API, C Service) can be scaled horizontally by running multiple instances behind a load balancer.
+-   **Database Scaling:** The database can be scaled vertically (more powerful server) or horizontally (read replicas, sharding for very large datasets).
+-   **Queueing System:** Utilizing a robust queueing system (like RabbitMQ or Kafka) allows for asynchronous processing and buffering of requests, preventing backpressure on services.
+-   **Caching:** Implementing caching layers (e.g., Redis) for frequently accessed but rarely changing data can significantly reduce database load.
+
+## 7.7 CI/CD Pipeline
+
+A Continuous Integration/Continuous Deployment (CI/CD) pipeline will automate the build, test, and deployment processes, ensuring rapid and reliable delivery of new features and bug fixes.
+
+**Typical CI/CD Workflow:**
+1.  **Code Commit:** Developers push code to the GitHub repository.
+2.  **Continuous Integration (CI):**
+    -   Automated tests (unit, integration) are run.
+    -   Code quality checks (linters, static analysis).
+    -   Build artifacts (JARs, Docker images) are created.
+3.  **Continuous Deployment (CD):**
+    -   Artifacts are deployed to a staging environment for further testing.
+    -   After successful staging tests, artifacts are deployed to production.
+
+## 7.8 Pre-Launch Security Checklist
+
+Before launching LindaJamii to a wider audience, a comprehensive security checklist will be followed:
+
+-   [ ] All environment variables are securely configured and not hardcoded.
+-   [ ] All API endpoints are protected by authentication and authorization.
+-   [ ] Input validation is implemented on all user-facing forms and API endpoints.
+-   [ ] Passwords are hashed using bcrypt.
+-   [ ] HTTPS is enforced for all communication.
+-   [ ] Dependencies are up-to-date to mitigate known vulnerabilities.
+-   [ ] Logging and monitoring are in place to detect suspicious activity.
+-   [ ] Regular security audits and penetration testing (if resources allow).
+
+<div style="page-break-after: always;"></div>
+
+# CHAPTER EIGHT: CONCLUSION AND FUTURE WORK
+
+## 8.1 Conclusion
+
+LindaJamii represents a significant step towards fostering safer and more informed communities through technology. By integrating a multi-language microservices architecture with a modern web frontend, the platform successfully addresses the challenges of fragmented communication, delayed incident response, and opaque community funding. The implementation of real-time incident reporting, an InfoHub for critical environmental and geopolitical updates, and a secure M-Pesa donation gateway provides a comprehensive solution that is both technically robust and socially impactful. The project demonstrates the power of a polyglot approach in building scalable and maintainable distributed systems, offering a blueprint for future community-centric digital initiatives.
+
+## 8.2 Future Work
+
+While LindaJamii provides a strong foundation, several areas are identified for future enhancements:
+
+-   **Mobile Native Applications:** Developing dedicated iOS and Android applications to provide a more optimized mobile experience and leverage device-specific features (e.g., GPS for incident location).
+-   **Advanced Analytics and AI:** Integrating machine learning models for predictive incident analysis, sentiment analysis on community posts, or automated anomaly detection.
+-   **Real-time Communication:** Implementing WebSockets for instant, bi-directional communication (e.g., live chat for incidents, real-time updates on patrol movements).
+-   **Gamification:** Introducing elements of gamification to encourage community participation and engagement.
+-   **IoT Integration:** Connecting with IoT devices (e.g., smart cameras, environmental sensors) to automatically report incidents or environmental changes.
+-   **Multi-language Support:** Extending the frontend and backend to support multiple human languages for broader accessibility.
+
+<div style="page-break-after: always;"></div>
+
+# REFERENCES
+
+1.  Sommerville, I. (2015). *Software Engineering*. 10th ed. Pearson.
+2.  Newman, S. (2015). *Building Microservices: Designing Fine-Grained Systems*. O'Reilly Media.
+3.  Safaricom Developer Portal. (2023). *Daraja API Documentation*. [Online] Available at: https://developer.safaricom.co.ke/ [Accessed 14 May 2026].
+4.  OpenWeatherMap. (2023). *Weather API Documentation*. [Online] Available at: https://openweathermap.org/api [Accessed 14 May 2026].
+5.  NewsAPI. (2023). *News API Documentation*. [Online] Available at: https://newsapi.org/docs [Accessed 14 May 2026].
+6.  Spring Framework Documentation. (2023). *Spring Boot Reference Guide*. [Online] Available at: https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/ [Accessed 14 May 2026].
+7.  Pallets Projects. (2023). *Flask Documentation*. [Online] Available at: https://flask.palletsprojects.com/ [Accessed 14 May 2026].
+8.  Apache Kafka. (2023). *Apache Kafka Documentation*. [Online] Available at: https://kafka.apache.org/documentation [Accessed 14 May 2026].
+9.  RabbitMQ. (2023). *RabbitMQ Documentation*. [Online] Available at: https://www.rabbitmq.com/documentation.html [Accessed 14 May 2026].
+10. Amazon Web Services. (2023). *Amazon SQS Documentation*. [Online] Available at: https://aws.amazon.com/sqs/ [Accessed 14 May 2026].
+
+<div style="page-break-after: always;"></div>
+
+# APPENDIX
+
+## Appendix A: Database Schema (SQL DDL)
+
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(20),
+    profile_picture_url TEXT,
+    bio TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_verified BOOLEAN DEFAULT FALSE,
+    role VARCHAR(50) DEFAULT 'user'
+);
+
+CREATE TABLE posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    media_url TEXT,
+    post_type VARCHAR(50) DEFAULT 'text',
+    location VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE followers (
+    follower_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    followed_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (follower_id, followed_id)
+);
+
+CREATE TABLE likes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (post_id, user_id) -- A user can only like a post once
+);
+
+CREATE TABLE chats (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_name VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE incidents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    incident_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    location VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'reported',
+    severity VARCHAR(50) DEFAULT 'medium',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alert_type VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    geographical_scope VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE neighbourhoods (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    location_coords VARCHAR(255), -- e.g., "-1.286389, 36.817223"
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE patrols (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    neighbourhood_id UUID NOT NULL REFERENCES neighbourhoods(id) ON DELETE CASCADE,
+    patrol_leader_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    status VARCHAR(50) DEFAULT 'scheduled',
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## Appendix B: Frontend 5-Step App Flow Diagrams
+
+*(Diagrams for Splash, Sign Up, Verify, Onboard, and Dashboard flows would be included here, possibly using Mermaid or similar tools for visual representation.)*
+
+## Appendix C: API Endpoints Summary
+
+| Service | Endpoint | Method | Description | Authentication |
+| :------ | :------- | :----- | :---------- | :------------- |
+| **Python API** | `/api/incidents` | `POST` | Report a new incident | JWT Required |
+| | `/api/incidents` | `GET` | Get all incidents | JWT Required |
+| | `/api/mpesa/stkpush` | `POST` | Initiate M-Pesa STK Push | JWT Required |
+| | `/api/mpesa/callback` | `POST` | M-Pesa callback URL | None |
+| | `/api/info/weather` | `GET` | Get local weather forecast | JWT Optional |
+| | `/api/info/news` | `GET` | Get curated news | JWT Optional |
+| **Java API** | `/api/auth/login` | `POST` | User login | None |
+| | `/api/auth/register` | `POST` | User registration | None |
+| | `/api/patrols` | `GET` | Get all patrols | JWT Required (USER/ADMIN) |
+| | `/api/patrols` | `POST` | Create new patrol | JWT Required (ADMIN) |
+| | `/api/neighbourhoods` | `GET` | Get all neighbourhoods | JWT Optional |
+| **C Service** | `/health` | `GET` | Service health check | None |
+| | `/hash` | `POST` | Compute DJB2 hash | None |
+
+<div style="page-break-after: always;"></div>
+
+# GLOSSARY
+
+-   **API (Application Programming Interface):** A set of definitions and protocols for building and integrating application software.
+-   **Asynchronous Processing:** A method of processing where a task can run in the background without blocking the main application thread.
+-   **bcrypt:** A password-hashing function designed to be slow, making brute-force attacks computationally expensive.
+-   **CI/CD (Continuous Integration/Continuous Deployment):** A set of practices that enable rapid and reliable delivery of software by automating the build, test, and deployment processes.
+-   **Controller:** In an MVC (Model-View-Controller) or similar architectural pattern, a component that processes user input and orchestrates the response.
+-   **CRUD (Create, Read, Update, Delete):** The four basic functions of persistent storage.
+-   **Daraja API:** Safaricom's M-Pesa API, allowing integration of M-Pesa services into other applications.
+-   **Database Schema:** The formal description of how data is organized in a database.
+-   **Decoupling:** Reducing the interdependencies between components of a system.
+-   **Distributed System:** A system whose components are located on different networked computers, which communicate and coordinate their actions by passing messages to one another.
+-   **DLQ (Dead-Letter Queue):** A queue where messages are sent after failing to be processed successfully a certain number of times.
+-   **ERD (Entity-Relationship Diagram):** A diagram that illustrates the relationships between entities in a database.
+-   **Flask:** A micro web framework for Python.
+-   **Frontend:** The part of a website or application that users interact with directly.
+-   **JWT (JSON Web Token):** A compact, URL-safe means of representing claims to be transferred between two parties.
+-   **Microservices Architecture:** An architectural style that structures an application as a collection of loosely coupled services.
+-   **M-Pesa:** A mobile phone-based money transfer, financing, and microfinancing service, launched by Vodafone and Safaricom.
+-   **Polyglot Architecture:** The practice of building applications using a mix of programming languages and technologies.
+-   **PostgreSQL:** A powerful, open-source object-relational database system.
+-   **Queue:** A data structure that stores messages temporarily before they are processed.
+-   **Repository:** A layer in an application that abstracts data access logic, providing a clean API for interacting with data sources.
+-   **REST (Representational State Transfer):** An architectural style for designing networked applications.
+-   **Service:** A component that encapsulates business logic and interacts with repositories and other services.
+-   **SPA (Single Page Application):** A web application that loads a single HTML page and dynamically updates that page as the user interacts with the app.
+-   **Spring Boot:** An open-source, Java-based framework used to create stand-alone, production-grade Spring applications.
+-   **STK Push:** A feature of M-Pesa Daraja API that sends a prompt to the customer's phone to enter their M-Pesa PIN to complete a transaction.
+-   **UML (Unified Modeling Language):** A standardized general-purpose modeling language in the field of object-oriented software engineering.
+-   **Visibility Timeout:** A period during which a message is hidden from other consumers after being retrieved from a queue.
